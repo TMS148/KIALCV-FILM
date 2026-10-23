@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡旺隔熱紙下單小幫手</title>
+    <!-- 引入 SheetJS 庫以解析 Excel 檔案 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #0056b3;
+            --success: #28a745;
+            --warning: #dc3545;
+            --bg: #050505;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 16px 12px;
+            color: #333;
+        }
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .kia-logo {
+            height: 28px;
+            width: auto;
+            display: block;
+        }
+        h2 {
+            text-align: center;
+            color: #ffffff;
+            margin: 0;
+            font-size: 1.4rem;
+            letter-spacing: 1px;
+        }
+        .section {
+            border: 1px solid #e1e4e8;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 18px;
+            background: #ffffff;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+        .section-title {
+            font-size: 1.05rem;
+            font-weight: bold;
+            margin-bottom: 14px;
+            color: #050505;
+            border-bottom: 2.5px solid var(--primary);
+            padding-bottom: 4px;
+            display: inline-block;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        input, select, textarea {
+            padding: 9px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .uppercase-input {
+            text-transform: uppercase;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(0,86,179,0.25);
+        }
+        .part-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+        .part-title {
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+        .part-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .vlt-subgrid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 8px;
+            background: #ffffff;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px dashed #ced4da;
+            margin-top: 6px;
+        }
+        .part-number-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #eef2f7;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-top: 8px;
+        }
+        .part-number-text {
+            font-family: monospace;
+            font-weight: bold;
+            color: #d63384;
+            flex-grow: 1;
+            word-break: break-all;
+            font-size: 1rem;
+        }
+        .btn {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #004085; }
+        .btn-success { background: var(--success); }
+        .btn-success:hover { background: #218838; }
+        .alert {
+            color: var(--warning);
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-top: 6px;
+            display: none;
+            background: #fdf2f2;
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid #f8b4b4;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 220px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            background-color: #f8f9fa;
+        }
+        .btn-copy-main {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+        .db-status {
+            font-size: 0.8rem;
+            color: #6c757d;
+            text-align: right;
+            margin-top: -10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-title">
+        <img class="kia-logo" src="https://www.kia.com/etc.clientlibs/kwp-global/clientlibs/clientlib-site/resources/images/common/logo_w.svg" alt="KIA Logo" onerror="this.onerror=null; this.outerHTML='<svg class=\'kia-logo\' viewBox=\'0 0 132 32\' xmlns=\'http://www.w3.org/2000/svg\'><path fill=\'#ffffff\' d=\'M32.5 0 L15.7 18.9 L0 18.9 L0 0 L7.4 0 L7.4 11.8 L18.9 0 L32.5 0 Z M15.7 18.9 L32.5 32 L19.7 32 L7.4 20.2 L7.4 32 L0 32 L0 18.9 L15.7 18.9 Z M45.8 0 L53.2 0 L53.2 32 L45.8 32 L45.8 0 Z M93.3 0 L76.5 18.9 L68.8 18.9 L68.8 0 L61.4 0 L61.4 32 L68.8 32 L68.8 18.9 L84.5 32 L99.2 32 L82.4 18.9 L93.3 0 Z\'/></svg>';">
+        <h2>卡旺隔熱紙下單小幫手</h2>
+    </div>
+
+    <!-- 1. 基本車輛資訊 -->
+    <div class="section">
+        <div class="section-title">1. 基本車輛資訊</div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="vin">車身碼 (必填，17碼)</label>
+                <input type="text" id="vin" class="uppercase-input" placeholder="請輸入17碼車身碼" maxlength="17" oninput="onVinInput()">
+                <div class="alert" id="vin-alert">⚠️ 車身碼需為17碼半形英數字</div>
+            </div>
+            <div class="form-group">
+                <label for="carModel">車型 (必選)</label>
+                <select id="carModel" onchange="onCarModelChange()">
+                    <option value="">-- 請選擇車型 --</option>
+                    <option value="單廂">單廂</option>
+                    <option value="大單廂">大單廂</option>
+                    <option value="雙廂">雙廂</option>
+                </select>
+                <div class="alert" id="model-mismatch-alert">⚠️ 警告：手選車型與車身碼第6碼判斷之車型不符！</div>
+            </div>
+            <div class="form-group">
+                <label for="carColor">車色 (選填)</label>
+                <select id="carColor" onchange="updateNote()">
+                    <option value="">-- 請選擇車色 --</option>
+                    <option value="白色">白色</option>
+                    <option value="藍色">藍色</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="salesRep">業代人員 (選填)</label>
+                <input type="text" id="salesRep" placeholder="例如：李大寶" oninput="updateNote()">
+            </div>
+            <div class="form-group">
+                <label for="location">存放(施工)地點 (必填)</label>
+                <input type="text" id="location" placeholder="例如：南港直營廠" oninput="updateNote()">
+            </div>
+            <div class="form-group">
+                <label for="deliveryDate">交車日 (選填)</label>
+                <input type="date" id="deliveryDate" onchange="updateNote()">
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="otherInfo">補充事項 (選填)</label>
+                <input type="text" id="otherInfo" placeholder="例如：車主選日交車，可交車後再施工" oninput="updateNote()">
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 隔熱紙型號選擇 -->
+    <div class="section">
+        <div class="section-title">2. 隔熱紙型號選擇</div>
+        <div id="db-status" class="db-status">正在載入資料庫...</div>
+        
+        <!-- 前擋 -->
+        <div class="part-block">
+            <div class="part-title">【前擋】(不分車型)</div>
+            <div class="part-grid">
+                <div class="form-group">
+                    <label>品牌與系列</label>
+                    <select id="front-brand-series" onchange="onBrandSeriesChange('front')">
+                        <option value="">-- 請選擇品牌系列 --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>適用車型規格</label>
+                    <select id="front-spec" onchange="onSpecChange('front')">
+                        <option value="">-- 請先選品牌系列 --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>透光度 (固定)</label>
+                    <select id="front-vlt" disabled onchange="updateNote()">
+                        <option value="">-- 請先選規格 --</option>
+                    </select>
+                </div>
+            </div>
+            <div class="part-number-box">
+                <span>件號：</span>
+                <span class="part-number-text" id="front-partno">---</span>
+                <button class="btn" onclick="copyText('front-partno')">複製件號</button>
+            </div>
+        </div>
+
+        <!-- 車身 -->
+        <div class="part-block">
+            <div class="part-title">【車身】</div>
+            <div class="part-grid">
+                <div class="form-group">
+                    <label>品牌與系列</label>
+                    <select id="body-brand-series" onchange="onBrandSeriesChange('body')">
+                        <option value="">-- 請選擇品牌系列 --</option>
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>適用車型規格</label>
+                    <select id="body-spec" onchange="onSpecChange('body')">
+                        <option value="">-- 請先選品牌系列 --</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 車身透光度動態顯示區域 -->
+            <label style="margin-top: 6px; display: block; color: var(--primary);">車身透光度選擇：</label>
+
+            <!-- 單廂 / 大單廂 用 -->
+            <div id="single-vlt-container" class="vlt-subgrid" style="display: grid;">
+                <div class="form-group">
+                    <label>車身透光度</label>
+                    <select id="body-vlt-single" onchange="updateNote()">
+                        <option value="">-- 請先選規格 --</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 雙廂 用 -->
+            <div id="double-vlt-container" class="vlt-subgrid" style="display: none;">
+                <div class="form-group">
+                    <label>前窗透光度</label>
+                    <select id="body-vlt-front" onchange="updateNote()">
+                        <option value="">-- 請先選規格 --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>後窗透光度</label>
+                    <select id="body-vlt-rear" onchange="updateNote()">
+                        <option value="">-- 請先選規格 --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="part-number-box">
+                <span>件號：</span>
+                <span class="part-number-text" id="body-partno">---</span>
+                <button class="btn" onclick="copyText('body-partno')">複製件號</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 系統備註欄位複製區 -->
+    <div class="section">
+        <div class="section-title">3. 系統備註欄位複製區</div>
+        <textarea id="finalNote" readonly></textarea>
+        <button class="btn btn-success btn-copy-main" onclick="copyText('finalNote')">一鍵複製系統備註文字</button>
+    </div>
+</div>
+
+<script>
+let DATABASE = [];
+const PART_TYPES_MAP = { "front": "前擋", "body": "車身" };
+
+// 頁面載入時讀取 database.xlsx
+window.addEventListener('DOMContentLoaded', () => {
+    loadDatabaseExcel();
+});
+
+async function loadDatabaseExcel() {
+    const statusElem = document.getElementById('db-status');
+    try {
+        const response = await fetch('database.xlsx');
+        if (!response.ok) throw new Error('無法讀取 database.xlsx 檔案');
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        
+        // 預設讀取第一個工作表
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // 將 Excel 轉為 JSON 陣列
+        const rawJson = XLSX.utils.sheet_to_json(worksheet);
+
+        // 解析資料並清理格式
+        DATABASE = rawJson.map(row => {
+            let carsArr = [];
+            if (row.cars) {
+                carsArr = typeof row.cars === 'string' ? row.cars.split(',').map(s => s.trim()) : [String(row.cars)];
+            } else if (row.raw_cars) {
+                if (row.raw_cars === "全車型") carsArr = ["單廂", "大單廂", "雙廂"];
+                else carsArr = [row.raw_cars];
+            }
+
+            let frontVlts = [];
+            if (row.front_vlts) {
+                frontVlts = String(row.front_vlts).split(',').map(s => s.trim());
+            }
+
+            let rearVlts = [];
+            if (row.rear_vlts) {
+                rearVlts = String(row.rear_vlts).split(',').map(s => s.trim());
+            }
+
+            return {
+                brand: row.brand ? String(row.brand).trim() : '',
+                part_type: row.part_type ? String(row.part_type).trim() : '',
+                series: row.series ? String(row.series).trim() : '',
+                part_no: row.part_no ? String(row.part_no).trim() : '',
+                raw_cars: row.raw_cars ? String(row.raw_cars).trim() : '',
+                cars: carsArr,
+                vlt_display: row.vlt_display ? String(row.vlt_display).trim() : '',
+                front_vlts: frontVlts,
+                rear_vlts: rearVlts
+            };
+        });
+
+        statusElem.textContent = '✅ 資料庫載入完成';
+        statusElem.style.color = '#28a745';
+
+        // 載入品牌系列下拉選單
+        initBrandSeriesOptions();
+
+    } catch (err) {
+        console.error(err);
+        statusElem.textContent = '❌ 資料庫載入失敗 (請確認 database.xlsx 是否位於同一目錄與 HTTP 伺服器環境下)';
+        statusElem.style.color = '#dc3545';
+    }
+}
+
+function initBrandSeriesOptions() {
+    ['front', 'body'].forEach(partKey => {
+        const partType = PART_TYPES_MAP[partKey];
+        const selectElem = document.getElementById(`${partKey}-brand-series`);
+        
+        // 過濾該部位的品牌與系列組合 (去重)
+        const uniqueCombinations = [];
+        const seen = new Set();
+
+        DATABASE.filter(item => item.part_type === partType).forEach(item => {
+            const key = `${item.brand}|${item.series}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                uniqueCombinations.push({
+                    brand: item.brand,
+                    series: item.series,
+                    label: `${item.brand} ${item.series}`
+                });
+            }
+        });
+
+        selectElem.innerHTML = '<option value="">-- 請選擇品牌系列 --</option>';
+        uniqueCombinations.forEach(combo => {
+            const opt = document.createElement('option');
+            opt.value = `${combo.brand}|${combo.series}`;
+            opt.textContent = combo.label;
+            selectElem.appendChild(opt);
+        });
+    });
+}
+
+function onVinInput() {
+    const vinInput = document.getElementById('vin');
+    let cleanedValue = vinInput.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    vinInput.value = cleanedValue;
+
+    const vinAlert = document.getElementById('vin-alert');
+    if (cleanedValue.length > 0 && cleanedValue.length !== 17) {
+        vinAlert.style.display = 'block';
+    } else {
+        vinAlert.style.display = 'none';
+    }
+
+    if (cleanedValue.length >= 6) {
+        const char6 = cleanedValue.charAt(5);
+        const carModelSelect = document.getElementById('carModel');
+        if (char6 === 'X') carModelSelect.value = "單廂";
+        else if (char6 === 'Y') carModelSelect.value = "雙廂";
+        else if (char6 === 'Z') carModelSelect.value = "大單廂";
+    }
+
+    onCarModelChange();
+}
+
+function checkVinModelMismatch() {
+    const vin = document.getElementById('vin').value.trim().toUpperCase();
+    const carModel = document.getElementById('carModel').value;
+    const alertElem = document.getElementById('model-mismatch-alert');
+
+    if (vin.length >= 6 && carModel) {
+        const char6 = vin.charAt(5);
+        let expectedModel = "";
+        if (char6 === 'X') expectedModel = "單廂";
+        else if (char6 === 'Y') expectedModel = "雙廂";
+        else if (char6 === 'Z') expectedModel = "大單廂";
+
+        if (expectedModel && expectedModel !== carModel) {
+            alertElem.style.display = 'block';
+        } else {
+            alertElem.style.display = 'none';
+        }
+    } else {
+        alertElem.style.display = 'none';
+    }
+}
+
+function onCarModelChange() {
+    checkVinModelMismatch();
+
+    const carModel = document.getElementById('carModel').value;
+    const singleContainer = document.getElementById('single-vlt-container');
+    const doubleContainer = document.getElementById('double-vlt-container');
+
+    if (carModel === "雙廂") {
+        singleContainer.style.display = 'none';
+        doubleContainer.style.display = 'grid';
+    } else {
+        singleContainer.style.display = 'grid';
+        doubleContainer.style.display = 'none';
+    }
+
+    ['front', 'body'].forEach(p => {
+        const bsValue = document.getElementById(`${p}-brand-series`).value;
+        if (bsValue) {
+            onBrandSeriesChange(p);
+        } else {
+            updatePartInfo(p);
+        }
+    });
+
+    updateNote();
+}
+
+function onBrandSeriesChange(partKey) {
+    const bsValue = document.getElementById(`${partKey}-brand-series`).value;
+    const specSelect = document.getElementById(`${partKey}-spec`);
+    const partType = PART_TYPES_MAP[partKey];
+    const userCarModel = document.getElementById('carModel').value;
+
+    specSelect.innerHTML = '<option value="">-- 請選擇適用車型 --</option>';
+    clearVltSelects(partKey);
+
+    if (bsValue) {
+        const [brand, series] = bsValue.split('|');
+        const matches = DATABASE.filter(item => item.brand === brand && item.part_type === partType && item.series === series);
+
+        let autoMatchedIndex = -1;
+
+        matches.forEach((item, idx) => {
+            const opt = document.createElement('option');
+            opt.value = idx;
+            opt.textContent = `適用車型: ${item.raw_cars} (件號: ${item.part_no})`;
+            specSelect.appendChild(opt);
+
+            if (userCarModel && autoMatchedIndex === -1) {
+                if (item.cars.includes(userCarModel)) {
+                    autoMatchedIndex = idx;
+                }
+            }
+        });
+
+        if (autoMatchedIndex !== -1) {
+            specSelect.value = autoMatchedIndex;
+        } else if (matches.length > 0) {
+            specSelect.value = 0;
+        }
+
+        onSpecChange(partKey);
+    } else {
+        updatePartInfo(partKey);
+    }
+}
+
+function clearVltSelects(partKey) {
+    if (partKey === 'body') {
+        document.getElementById('body-vlt-single').innerHTML = '<option value="">-- 請先選規格 --</option>';
+        document.getElementById('body-vlt-front').innerHTML = '<option value="">-- 請先選規格 --</option>';
+        document.getElementById('body-vlt-rear').innerHTML = '<option value="">-- 請先選規格 --</option>';
+    } else {
+        const select = document.getElementById('front-vlt');
+        select.innerHTML = '<option value="">-- 請先選規格 --</option>';
+        select.disabled = true;
+    }
+}
+
+function onSpecChange(partKey) {
+    const bsValue = document.getElementById(`${partKey}-brand-series`).value;
+    const specIndex = document.getElementById(`${partKey}-spec`).value;
+    const partType = PART_TYPES_MAP[partKey];
+
+    clearVltSelects(partKey);
+
+    if (bsValue && specIndex !== "") {
+        const [brand, series] = bsValue.split('|');
+        const matches = DATABASE.filter(item => item.brand === brand && item.part_type === partType && item.series === series);
+        const selectedItem = matches[specIndex];
+
+        if (selectedItem) {
+            if (partKey === 'front') {
+                const select = document.getElementById('front-vlt');
+                select.innerHTML = `<option value="${selectedItem.vlt_display}">${selectedItem.vlt_display}</option>`;
+                select.disabled = false;
+            } else if (partKey === 'body') {
+                const frontVlts = selectedItem.front_vlts || [];
+                const rearVlts = selectedItem.rear_vlts || [];
+                
+                ['body-vlt-single', 'body-vlt-front'].forEach(id => {
+                    const select = document.getElementById(id);
+                    select.innerHTML = '<option value="">-- 請選擇 --</option>';
+                    frontVlts.forEach(v => {
+                        const opt = document.createElement('option');
+                        opt.value = v;
+                        opt.textContent = v;
+                        select.appendChild(opt);
+                    });
+                });
+
+                const rearSelect = document.getElementById('body-vlt-rear');
+                rearSelect.innerHTML = '<option value="">-- 請選擇 --</option>';
+                rearVlts.forEach(v => {
+                    const opt = document.createElement('option');
+                    opt.value = v;
+                    opt.textContent = v;
+                    rearSelect.appendChild(opt);
+                });
+            }
+        }
+    }
+
+    updatePartInfo(partKey);
+}
+
+function updatePartInfo(partKey) {
+    const bsValue = document.getElementById(`${partKey}-brand-series`).value;
+    const specIndex = document.getElementById(`${partKey}-spec`).value;
+    const partNoElem = document.getElementById(`${partKey}-partno`);
+    const partType = PART_TYPES_MAP[partKey];
+
+    if (bsValue && specIndex !== "") {
+        const [brand, series] = bsValue.split('|');
+        const matches = DATABASE.filter(item => item.brand === brand && item.part_type === partType && item.series === series);
+        const selectedItem = matches[specIndex];
+
+        if (selectedItem) {
+            partNoElem.textContent = selectedItem.part_no;
+        } else {
+            partNoElem.textContent = '---';
+        }
+    } else {
+        partNoElem.textContent = '---';
+    }
+
+    updateNote();
+}
+
+function updateNote() {
+    const vin = document.getElementById('vin').value.trim().toUpperCase();
+    const carModel = document.getElementById('carModel').value;
+    const carColor = document.getElementById('carColor').value;
+    const salesRep = document.getElementById('salesRep').value.trim();
+    const location = document.getElementById('location').value.trim();
+    const rawDeliveryDate = document.getElementById('deliveryDate').value;
+    const otherInfo = document.getElementById('otherInfo').value.trim();
+
+    // 格式化交車日日期 (YYYY/MM/DD)
+    let formattedDate = '';
+    if (rawDeliveryDate) {
+        formattedDate = rawDeliveryDate.replace(/-/g, '/');
+    }
+
+    // 前擋文字
+    const frontBs = document.getElementById('front-brand-series').value;
+    let frontStr = '';
+    if (frontBs) {
+        const [fBrand, fSeries] = frontBs.split('|');
+        const specIndex = document.getElementById('front-spec').value;
+        const matches = DATABASE.filter(item => item.brand === fBrand && item.part_type === "前擋" && item.series === fSeries);
+        const selectedItem = matches[specIndex];
+        
+        if (selectedItem && selectedItem.vlt_display) {
+            frontStr = `前擋：${fBrand} ${selectedItem.vlt_display}`;
+        } else {
+            frontStr = `前擋：${fBrand}`;
+        }
+    }
+
+    // 車身文字格式化
+    const bodyBs = document.getElementById('body-brand-series').value;
+    let bodyStr = '';
+    if (bodyBs) {
+        const [bBrand, bSeries] = bodyBs.split('|');
+        const seriesPrefix = bSeries ? bSeries.replace('系列', '') : '';
+
+        if (carModel === "雙廂") {
+            const vltFront = document.getElementById('body-vlt-front').value;
+            const vltRear = document.getElementById('body-vlt-rear').value;
+
+            if (vltFront && vltFront === vltRear) {
+                bodyStr = `車身：${bBrand} ${seriesPrefix} ${vltFront}`.trim();
+            } else {
+                let parts = [];
+                if (vltFront) parts.push(`前窗 ${bBrand} ${seriesPrefix} ${vltFront}`.trim());
+                if (vltRear) parts.push(`後窗 ${bBrand} ${seriesPrefix} ${vltRear}`.trim());
+                bodyStr = parts.length > 0 ? `車身：${parts.join('、')}` : `車身：${bBrand}`;
+            }
+        } else {
+            // 單廂 / 大單廂
+            const vltSingle = document.getElementById('body-vlt-single').value;
+            bodyStr = `車身：${bBrand} ${seriesPrefix} ${vltSingle}`.trim();
+        }
+    }
+
+    let lines = [
+        `車身碼：${vin}`,
+        `車型：${carModel}`,
+        `車色：${carColor}`,
+        `業代：${salesRep}`,
+        `存放(施工)地點：${location}`,
+        `${frontStr ? frontStr : '前擋：'}`,
+        `${bodyStr ? bodyStr : '車身：'}`,
+        `交車日：${formattedDate}`,
+        `補充事項：${otherInfo}`
+    ];
+
+    document.getElementById('finalNote').value = lines.join('\n');
+}
+
+function copyText(elementId) {
+    if (elementId === 'finalNote') {
+        let missingFields = [];
+
+        const vin = document.getElementById('vin').value.trim();
+        const carModel = document.getElementById('carModel').value;
+        const location = document.getElementById('location').value.trim();
+
+        if (!vin || vin.length !== 17) {
+            missingFields.push('車身碼 (需為正確17碼)');
+        }
+        if (!carModel) {
+            missingFields.push('車型');
+        }
+        if (!location) {
+            missingFields.push('存放(施工)地點');
+        }
+
+        const frontBs = document.getElementById('front-brand-series').value;
+
+        const bodyBs = document.getElementById('body-brand-series').value;
+        let isBodyComplete = false;
+
+        if (carModel === "雙廂") {
+            const bodyVltFront = document.getElementById('body-vlt-front').value;
+            const bodyVltRear = document.getElementById('body-vlt-rear').value;
+            isBodyComplete = bodyBs && bodyVltFront && bodyVltRear;
+        } else {
+            const bodyVltSingle = document.getElementById('body-vlt-single').value;
+            isBodyComplete = bodyBs && bodyVltSingle;
+        }
+
+        if (!frontBs && !bodyBs) {
+            missingFields.push('隔熱紙型號 (【前擋】與【車身】至少需完成設定)');
+        } else if (bodyBs && !isBodyComplete) {
+            missingFields.push('【車身】透光度未完全選擇');
+        }
+
+        if (missingFields.length > 0) {
+            alert('⚠️ 無法複製系統備註！請先完成以下必要欄位：\n\n' + missingFields.map((f, i) => `${i + 1}. ${f}`).join('\n'));
+            return;
+        }
+    }
+
+    const elem = document.getElementById(elementId);
+    let textToCopy = (elem.tagName === 'TEXTAREA' || elem.tagName === 'INPUT') ? elem.value : elem.textContent;
+
+    if (!textToCopy || textToCopy === '---') {
+        alert('無內容可複製！');
+        return;
+    }
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            alert('複製成功！');
+        }).catch(() => fallbackCopy(textToCopy));
+    } else {
+        fallbackCopy(textToCopy);
+    }
+}
+
+function fallbackCopy(text) {
+    const tempInput = document.createElement('textarea');
+    tempInput.value = text;
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    document.execCommand('copy');
+    document.body.removeChild(tempInput);
+    alert('複製成功！');
+}
+
+updateNote();
+</script>
+
+</body>
+</html>
+
+```eof
+
+### 修改重點：
+1. **動態讀取 Excel**：引入了 SheetJS (`xlsx.full.min.js`) 函式庫，頁面載入時會自動透過 Fetch API 讀取同目錄下的 `database.xlsx`。
+2. **動態選單生成**：品牌與系列選單不再寫死，而是依據 `database.xlsx` 的內容自動去重並生成選單項目。未來新增品牌或系列時，只需更新 Excel 檔案即可。
+3. **擴充性動態拼接**：系統備註欄位的隔熱紙名稱改為動態根據品牌的品牌名稱與系列名稱自動格式化輸出。
+
+*注意：瀏覽器基於安全性限制 (CORS)，請確保網頁放置於 Web 伺服器 (如 Live Server, Nginx 或 Apache 等) 環境下運行以正常讀取同目錄的 `database.xlsx` 檔案。*
