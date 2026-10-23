@@ -262,6 +262,7 @@
                     </select>
                 </div>
             </div>
+            <div class="alert" id="front-mismatch-alert">⚠️ 警告：所選之隔熱紙件號規格與上方設定之車型不符！</div>
             <div class="part-number-box">
                 <span>件號：</span>
                 <span class="part-number-text" id="front-partno">---</span>
@@ -286,6 +287,7 @@
                     </select>
                 </div>
             </div>
+            <div class="alert" id="body-mismatch-alert">⚠️ 警告：所選之隔熱紙件號規格與上方設定之車型不符！</div>
 
             <!-- 車身透光度動態顯示區域 -->
             <label style="margin-top: 6px; display: block; color: var(--primary);">車身透光度選擇：</label>
@@ -358,7 +360,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
 async function loadDatabaseExcel() {
     try {
-        // 使用時間戳記防快取 (Cache Busting)
         const timestamp = new Date().getTime();
         const response = await fetch(`database.xlsx?t=${timestamp}`, {
             cache: 'no-store'
@@ -584,6 +585,32 @@ function clearVltSelects(partKey) {
     }
 }
 
+// 輔助函式：填充透光度選單，若僅有一種選擇則自動帶出
+function populateVltSelect(selectElem, vltList) {
+    selectElem.innerHTML = '';
+    if (vltList.length === 1) {
+        // 只有一個透光度，直接預設選擇，不加 "-- 請選擇 --"
+        const opt = document.createElement('option');
+        opt.value = vltList[0];
+        opt.textContent = vltList[0];
+        selectElem.appendChild(opt);
+        selectElem.value = vltList[0];
+    } else {
+        // 多個透光度，建立預設 "-- 請選擇 --" 選項
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '-- 請選擇 --';
+        selectElem.appendChild(defaultOpt);
+
+        vltList.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            selectElem.appendChild(opt);
+        });
+    }
+}
+
 function onSpecChange(partKey) {
     const bsValue = document.getElementById(`${partKey}-brand-series`).value;
     const specIndex = document.getElementById(`${partKey}-spec`).value;
@@ -605,30 +632,36 @@ function onSpecChange(partKey) {
                 const frontVlts = selectedItem.front_vlts || [];
                 const rearVlts = selectedItem.rear_vlts || [];
                 
-                ['body-vlt-single', 'body-vlt-front'].forEach(id => {
-                    const select = document.getElementById(id);
-                    select.innerHTML = '<option value="">-- 請選擇 --</option>';
-                    frontVlts.forEach(v => {
-                        const opt = document.createElement('option');
-                        opt.value = v;
-                        opt.textContent = v;
-                        select.appendChild(opt);
-                    });
-                });
-
-                const rearSelect = document.getElementById('body-vlt-rear');
-                rearSelect.innerHTML = '<option value="">-- 請選擇 --</option>';
-                rearVlts.forEach(v => {
-                    const opt = document.createElement('option');
-                    opt.value = v;
-                    opt.textContent = v;
-                    rearSelect.appendChild(opt);
-                });
+                populateVltSelect(document.getElementById('body-vlt-single'), frontVlts);
+                populateVltSelect(document.getElementById('body-vlt-front'), frontVlts);
+                populateVltSelect(document.getElementById('body-vlt-rear'), rearVlts);
             }
         }
     }
 
     updatePartInfo(partKey);
+}
+
+function checkPartModelMismatch(partKey) {
+    const carModel = document.getElementById('carModel').value;
+    const bsValue = document.getElementById(`${partKey}-brand-series`).value;
+    const specIndex = document.getElementById(`${partKey}-spec`).value;
+    const alertElem = document.getElementById(`${partKey}-mismatch-alert`);
+    const partType = PART_TYPES_MAP[partKey];
+
+    if (carModel && bsValue && specIndex !== "") {
+        const [brand, series] = bsValue.split('|');
+        const matches = DATABASE.filter(item => item.brand === brand && item.part_type === partType && item.series === series);
+        const selectedItem = matches[specIndex];
+
+        if (selectedItem && !selectedItem.cars.includes(carModel)) {
+            alertElem.style.display = 'block';
+        } else {
+            alertElem.style.display = 'none';
+        }
+    } else {
+        alertElem.style.display = 'none';
+    }
 }
 
 function updatePartInfo(partKey) {
@@ -651,6 +684,7 @@ function updatePartInfo(partKey) {
         partNoElem.textContent = '---';
     }
 
+    checkPartModelMismatch(partKey);
     updateNote();
 }
 
