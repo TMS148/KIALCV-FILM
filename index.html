@@ -509,20 +509,7 @@ function checkVinModelMismatch() {
 function onCarModelChange() {
     checkVinModelMismatch();
 
-    const carModel = document.getElementById('carModel').value;
-    const singleContainer = document.getElementById('single-vlt-container');
-    const doubleContainer = document.getElementById('double-vlt-container');
-
-    // 切換透光度顯示介面：雙廂 -> 前窗+後窗；單廂/大單廂 -> 單一車身
-    if (carModel === "雙廂") {
-        singleContainer.style.display = 'none';
-        doubleContainer.style.display = 'grid';
-    } else {
-        singleContainer.style.display = 'grid';
-        doubleContainer.style.display = 'none';
-    }
-
-    // 若品牌系列已選，重新連動對應車型的規格與透光度
+    // 當基本車輛資訊改變時，更新規格選單並連動
     ['front', 'body'].forEach(p => {
         const bsValue = document.getElementById(`${p}-brand-series`).value;
         if (bsValue) {
@@ -637,6 +624,20 @@ function onSpecChange(partKey) {
                 select.innerHTML = `<option value="${selectedItem.vlt_display}">${selectedItem.vlt_display}</option>`;
                 select.disabled = false;
             } else if (partKey === 'body') {
+                const singleContainer = document.getElementById('single-vlt-container');
+                const doubleContainer = document.getElementById('double-vlt-container');
+
+                // 核心關鍵：依據目前【選中的隔熱紙適用車型規格】切換介面，而非上方車型
+                const isDoubleCabinSpec = selectedItem.cars.includes('雙廂') && selectedItem.raw_cars === '雙廂';
+
+                if (isDoubleCabinSpec) {
+                    singleContainer.style.display = 'none';
+                    doubleContainer.style.display = 'grid';
+                } else {
+                    singleContainer.style.display = 'grid';
+                    doubleContainer.style.display = 'none';
+                }
+
                 const frontVlts = selectedItem.front_vlts || [];
                 const rearVlts = selectedItem.rear_vlts || [];
                 
@@ -739,13 +740,20 @@ function updateNote() {
         }
     }
 
-    // 車身文字格式化
+    // 車身文字格式化 (依據實際選擇的車身選單或介面來呈現)
     const bodyBs = document.getElementById('body-brand-series').value;
+    const bodySpecIndex = document.getElementById('body-spec').value;
     let bodyLines = [];
-    if (bodyBs) {
+    
+    if (bodyBs && bodySpecIndex !== "") {
         const [bBrand, bSeries] = bodyBs.split('|');
+        const matches = DATABASE.filter(item => item.brand === bBrand && item.part_type === "車身" && item.series === bSeries);
+        const selectedItem = matches[bodySpecIndex];
 
-        if (carModel === "雙廂") {
+        // 判斷當前選中的車身規格是否為雙廂
+        const isDoubleCabinSpec = selectedItem && selectedItem.cars.includes('雙廂') && selectedItem.raw_cars === '雙廂';
+
+        if (isDoubleCabinSpec) {
             const vltFront = document.getElementById('body-vlt-front').value;
             const vltRear = document.getElementById('body-vlt-rear').value;
 
@@ -813,15 +821,23 @@ function copyText(elementId) {
 
         const frontBs = document.getElementById('front-brand-series').value;
         const bodyBs = document.getElementById('body-brand-series').value;
+        const bodySpecIndex = document.getElementById('body-spec').value;
         let isBodyComplete = false;
 
-        if (carModel === "雙廂") {
-            const bodyVltFront = document.getElementById('body-vlt-front').value;
-            const bodyVltRear = document.getElementById('body-vlt-rear').value;
-            isBodyComplete = bodyBs && bodyVltFront && bodyVltRear;
-        } else {
-            const bodyVltSingle = document.getElementById('body-vlt-single').value;
-            isBodyComplete = bodyBs && bodyVltSingle;
+        if (bodyBs && bodySpecIndex !== "") {
+            const [bBrand, bSeries] = bodyBs.split('|');
+            const matches = DATABASE.filter(item => item.brand === bBrand && item.part_type === "車身" && item.series === bSeries);
+            const selectedItem = matches[bodySpecIndex];
+            const isDoubleCabinSpec = selectedItem && selectedItem.cars.includes('雙廂') && selectedItem.raw_cars === '雙廂';
+
+            if (isDoubleCabinSpec) {
+                const bodyVltFront = document.getElementById('body-vlt-front').value;
+                const bodyVltRear = document.getElementById('body-vlt-rear').value;
+                isBodyComplete = bodyBs && bodyVltFront && bodyVltRear;
+            } else {
+                const bodyVltSingle = document.getElementById('body-vlt-single').value;
+                isBodyComplete = bodyBs && bodyVltSingle;
+            }
         }
 
         if (!frontBs && !bodyBs) {
