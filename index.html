@@ -340,15 +340,15 @@ const PART_TYPES_MAP = { "front": "前擋", "body": "車身" };
 
 // 預設備用資料集
 const DEFAULT_FALLBACK_DATA = [
-  {"brand": "Smith", "part_type": "前擋", "series": "Bella", "part_no": "99PVYPUT122", "raw_cars": "全車型", "cars": ["單廂", "大單廂", "雙廂"], "vlt_display": "Bella 70", "vlt_num": 70},
+  {"brand": "Smith", "part_type": "前擋", "series": "Bella", "part_no": "99PVYPUT122", "raw_cars": "全車型", "cars": ["單廂", "大單廂", "雙廂"], "vlt_val": "70", "vlt_num": 70},
   {"brand": "Smith", "part_type": "車身", "series": "Bella", "part_no": "99PVYPUT120S", "raw_cars": "單廂", "cars": ["單廂"], "front_vlts": ["40", "70"], "rear_vlts": ["05", "15", "30", "40", "70"]},
   {"brand": "Smith", "part_type": "車身", "series": "Bella", "part_no": "99PVYPUT120L", "raw_cars": "大單廂", "cars": ["大單廂"], "front_vlts": ["40", "70"], "rear_vlts": ["05", "15", "30", "40", "70"]},
   {"brand": "Smith", "part_type": "車身", "series": "Bella", "part_no": "99PVYPUT120D", "raw_cars": "雙廂", "cars": ["雙廂"], "front_vlts": ["40", "70"], "rear_vlts": ["05", "15", "30", "40", "70"]},
-  {"brand": "FSK", "part_type": "前擋", "series": "KS", "part_no": "99PVYPUFSKB122", "raw_cars": "全車型", "cars": ["單廂", "大單廂", "雙廂"], "vlt_display": "KS 78", "vlt_num": 78},
+  {"brand": "FSK", "part_type": "前擋", "series": "KS", "part_no": "99PVYPUFSKB122", "raw_cars": "全車型", "cars": ["單廂", "大單廂", "雙廂"], "vlt_val": "78", "vlt_num": 78},
   {"brand": "FSK", "part_type": "車身", "series": "KS", "part_no": "99PVYPUFSKB120S", "raw_cars": "單廂", "cars": ["單廂"], "front_vlts": ["40"], "rear_vlts": ["20", "40"]},
   {"brand": "FSK", "part_type": "車身", "series": "KS", "part_no": "99PVYPUFSKB120L", "raw_cars": "大單廂", "cars": ["大單廂"], "front_vlts": ["40"], "rear_vlts": ["20", "40"]},
   {"brand": "FSK", "part_type": "車身", "series": "KS", "part_no": "99PVYPUFSKB120D", "raw_cars": "雙廂", "cars": ["雙廂"], "front_vlts": ["40"], "rear_vlts": ["20", "40"]},
-  {"brand": "3M", "part_type": "前擋", "series": "8803 Plus", "part_no": "99PVY3M35C", "raw_cars": "全車型", "cars": ["單廂", "大單廂", "雙廂"], "vlt_display": "P 70", "vlt_num": 70},
+  {"brand": "3M", "part_type": "前擋", "series": "8803 Plus", "part_no": "99PVY3M35C", "raw_cars": "全車型", "cars": ["單廂", "大單廂", "雙廂"], "vlt_val": "70", "vlt_num": 70},
   {"brand": "3M", "part_type": "車身", "series": "8803 Plus", "part_no": "99PVY3M20CS", "raw_cars": "單廂", "cars": ["單廂"], "front_vlts": ["40", "70"], "rear_vlts": ["18", "35", "40", "70"]},
   {"brand": "3M", "part_type": "車身", "series": "8803 Plus", "part_no": "99PVY3M20CL", "raw_cars": "大單廂", "cars": ["大單廂"], "front_vlts": ["40", "70"], "rear_vlts": ["18", "35", "40", "70"]},
   {"brand": "3M", "part_type": "車身", "series": "8803 Plus", "part_no": "99PVY3M20CD", "raw_cars": "雙廂", "cars": ["雙廂"], "front_vlts": ["40", "70"], "rear_vlts": ["18", "35", "40", "70"]}
@@ -386,15 +386,14 @@ async function loadDatabaseExcel() {
             let carsArr = (raw_cars === "全車型") ? ["單廂", "大單廂", "雙廂"] : [raw_cars];
             let rawVltList = vlt_str.split(',').map(s => s.trim()).filter(s => s);
 
-            let vlt_display = '';
+            let vlt_val = '';
             let vlt_num = 0;
             let frontVlts = [];
             let rearVlts = [];
 
             if (part_type === '前擋') {
                 vlt_num = parseFloat(vlt_str) || 0;
-                const seriesDisplay = row['系列顯示'] || series;
-                vlt_display = `${seriesDisplay} ${vlt_str}`.trim();
+                vlt_val = vlt_str; // 選單僅呈現單純數字
             } else {
                 frontVlts = rawVltList.filter(v => (parseFloat(v) || 0) >= 38);
                 rearVlts = rawVltList;
@@ -408,7 +407,7 @@ async function loadDatabaseExcel() {
                 part_no,
                 raw_cars,
                 cars: carsArr,
-                vlt_display,
+                vlt_val,
                 vlt_num,
                 front_vlts: frontVlts,
                 rear_vlts: rearVlts
@@ -509,7 +508,6 @@ function checkVinModelMismatch() {
 function onCarModelChange() {
     checkVinModelMismatch();
 
-    // 當基本車輛資訊改變時，更新規格選單並連動
     ['front', 'body'].forEach(p => {
         const bsValue = document.getElementById(`${p}-brand-series`).value;
         if (bsValue) {
@@ -543,7 +541,6 @@ function onBrandSeriesChange(partKey) {
             opt.textContent = `適用車型: ${item.raw_cars} (件號: ${item.part_no})`;
             specSelect.appendChild(opt);
 
-            // 自動根據上方選取的車型匹配對應車身規格
             if (userCarModel && autoMatchedIndex === -1) {
                 if (item.cars.includes(userCarModel)) {
                     autoMatchedIndex = idx;
@@ -584,14 +581,12 @@ function populateVltSelect(selectElem, vltList) {
         opt.textContent = '-- 無適用透光度 --';
         selectElem.appendChild(opt);
     } else if (vltList.length === 1) {
-        // 只有一個透光度，直接預設選擇，不加 "-- 請選擇 --"
         const opt = document.createElement('option');
         opt.value = vltList[0];
         opt.textContent = vltList[0];
         selectElem.appendChild(opt);
         selectElem.value = vltList[0];
     } else {
-        // 多個透光度，建立預設 "-- 請選擇 --" 選項
         const defaultOpt = document.createElement('option');
         defaultOpt.value = '';
         defaultOpt.textContent = '-- 請選擇 --';
@@ -621,13 +616,14 @@ function onSpecChange(partKey) {
         if (selectedItem) {
             if (partKey === 'front') {
                 const select = document.getElementById('front-vlt');
-                select.innerHTML = `<option value="${selectedItem.vlt_display}">${selectedItem.vlt_display}</option>`;
+                // 前擋下拉顯示純透光度數字
+                select.innerHTML = `<option value="${selectedItem.vlt_val}">${selectedItem.vlt_val}</option>`;
                 select.disabled = false;
             } else if (partKey === 'body') {
                 const singleContainer = document.getElementById('single-vlt-container');
                 const doubleContainer = document.getElementById('double-vlt-container');
 
-                // 核心關鍵：依據目前【選中的隔熱紙適用車型規格】切換介面，而非上方車型
+                // 依選中的車身規格決定顯示介面
                 const isDoubleCabinSpec = selectedItem.cars.includes('雙廂') && selectedItem.raw_cars === '雙廂';
 
                 if (isDoubleCabinSpec) {
@@ -720,7 +716,7 @@ function updateNote() {
         formattedDate = rawDeliveryDate.replace(/-/g, '/');
     }
 
-    // 前擋文字
+    // 前擋系統備註格式化
     const frontBs = document.getElementById('front-brand-series').value;
     let frontStr = '';
     if (frontBs) {
@@ -728,19 +724,16 @@ function updateNote() {
         const specIndex = document.getElementById('front-spec').value;
         const matches = DATABASE.filter(item => item.brand === fBrand && item.part_type === "前擋" && item.series === fSeries);
         const selectedItem = matches[specIndex];
+        const vltVal = document.getElementById('front-vlt').value;
         
-        if (selectedItem) {
-            if (fSeries.includes('8803') || fSeries.includes('Plus')) {
-                frontStr = `前擋：3M ${selectedItem.vlt_display}`;
-            } else {
-                frontStr = `前擋：${fBrand} ${selectedItem.vlt_display}`;
-            }
+        if (selectedItem && vltVal) {
+            frontStr = `前擋：${formatFilmName(fBrand, fSeries, vltVal)}`;
         } else {
             frontStr = `前擋：${fBrand}`;
         }
     }
 
-    // 車身文字格式化 (依據實際選擇的車身選單或介面來呈現)
+    // 車身系統備註格式化
     const bodyBs = document.getElementById('body-brand-series').value;
     const bodySpecIndex = document.getElementById('body-spec').value;
     let bodyLines = [];
@@ -750,7 +743,6 @@ function updateNote() {
         const matches = DATABASE.filter(item => item.brand === bBrand && item.part_type === "車身" && item.series === bSeries);
         const selectedItem = matches[bodySpecIndex];
 
-        // 判斷當前選中的車身規格是否為雙廂
         const isDoubleCabinSpec = selectedItem && selectedItem.cars.includes('雙廂') && selectedItem.raw_cars === '雙廂';
 
         if (isDoubleCabinSpec) {
@@ -763,7 +755,6 @@ function updateNote() {
             if (frontName) bodyLines.push(`前窗：${frontName}`);
             if (rearName) bodyLines.push(`後窗：${rearName}`);
         } else {
-            // 單廂 / 大單廂
             const vltSingle = document.getElementById('body-vlt-single').value;
             const singleName = vltSingle ? formatFilmName(bBrand, bSeries, vltSingle) : '';
             if (singleName) {
