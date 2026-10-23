@@ -10,7 +10,7 @@
     <meta http-equiv="Expires" content="0">
 
     <title>卡旺隔熱紙下單小幫手</title>
-    <!-- 引入 SheetJS 庫以解析 Excel 檔案 (加上版本號避免快取) -->
+    <!-- 引入 SheetJS 庫以解析 Excel 檔案 -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js?v=0.18.5"></script>
     <style>
         :root {
@@ -513,6 +513,7 @@ function onCarModelChange() {
     const singleContainer = document.getElementById('single-vlt-container');
     const doubleContainer = document.getElementById('double-vlt-container');
 
+    // 切換透光度顯示介面：雙廂 -> 前窗+後窗；單廂/大單廂 -> 單一車身
     if (carModel === "雙廂") {
         singleContainer.style.display = 'none';
         doubleContainer.style.display = 'grid';
@@ -521,6 +522,7 @@ function onCarModelChange() {
         doubleContainer.style.display = 'none';
     }
 
+    // 若品牌系列已選，重新連動對應車型的規格與透光度
     ['front', 'body'].forEach(p => {
         const bsValue = document.getElementById(`${p}-brand-series`).value;
         if (bsValue) {
@@ -554,6 +556,7 @@ function onBrandSeriesChange(partKey) {
             opt.textContent = `適用車型: ${item.raw_cars} (件號: ${item.part_no})`;
             specSelect.appendChild(opt);
 
+            // 自動根據上方選取的車型匹配對應車身規格
             if (userCarModel && autoMatchedIndex === -1) {
                 if (item.cars.includes(userCarModel)) {
                     autoMatchedIndex = idx;
@@ -588,7 +591,12 @@ function clearVltSelects(partKey) {
 // 輔助函式：填充透光度選單，若僅有一種選擇則自動帶出
 function populateVltSelect(selectElem, vltList) {
     selectElem.innerHTML = '';
-    if (vltList.length === 1) {
+    if (!vltList || vltList.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '-- 無適用透光度 --';
+        selectElem.appendChild(opt);
+    } else if (vltList.length === 1) {
         // 只有一個透光度，直接預設選擇，不加 "-- 請選擇 --"
         const opt = document.createElement('option');
         opt.value = vltList[0];
@@ -747,6 +755,7 @@ function updateNote() {
             if (frontName) bodyLines.push(`前窗：${frontName}`);
             if (rearName) bodyLines.push(`後窗：${rearName}`);
         } else {
+            // 單廂 / 大單廂
             const vltSingle = document.getElementById('body-vlt-single').value;
             const singleName = vltSingle ? formatFilmName(bBrand, bSeries, vltSingle) : '';
             if (singleName) {
