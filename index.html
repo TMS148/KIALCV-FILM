@@ -338,7 +338,22 @@
 let DATABASE = [];
 const PART_TYPES_MAP = { "front": "前擋", "body": "車身" };
 
-// 頁面載入時讀取 database.xlsx
+// 預設寫死資料（避免在無 Web Server 的單機環境直接雙擊 index.html 時因 CORS 阻擋而無法出現選單）
+const DEFAULT_FALLBACK_DATA = [
+  {"brand": "Smith", "part_type": "前擋", "series": "Bella", "part_no": "99PVYPUT122", "raw_cars": "全車型", "cars": ["單廂", "大單廂", "雙廂"], "vlt_display": "Bella 70"},
+  {"brand": "Smith", "part_type": "車身", "series": "Bella", "part_no": "99PVYPUT120S", "raw_cars": "單廂", "cars": ["單廂"], "front_vlts": ["05", "15", "30", "40", "70"], "rear_vlts": ["05", "15", "30", "40", "70"]},
+  {"brand": "Smith", "part_type": "車身", "series": "Bella", "part_no": "99PVYPUT120L", "raw_cars": "大單廂", "cars": ["大單廂"], "front_vlts": ["05", "15", "30", "40", "70"], "rear_vlts": ["05", "15", "30", "40", "70"]},
+  {"brand": "Smith", "part_type": "車身", "series": "Bella", "part_no": "99PVYPUT120D", "raw_cars": "雙廂", "cars": ["雙廂"], "front_vlts": ["05", "15", "30", "40", "70"], "rear_vlts": ["05", "15", "30", "40", "70"]},
+  {"brand": "FSK", "part_type": "前擋", "series": "KS", "part_no": "99PVYPUFSKB122", "raw_cars": "全車型", "cars": ["單廂", "大單廂", "雙廂"], "vlt_display": "KS 78"},
+  {"brand": "FSK", "part_type": "車身", "series": "KS", "part_no": "99PVYPUFSKB120S", "raw_cars": "單廂", "cars": ["單廂"], "front_vlts": ["20", "40"], "rear_vlts": ["20", "40"]},
+  {"brand": "FSK", "part_type": "車身", "series": "KS", "part_no": "99PVYPUFSKB120L", "raw_cars": "大單廂", "cars": ["大單廂"], "front_vlts": ["20", "40"], "rear_vlts": ["20", "40"]},
+  {"brand": "FSK", "part_type": "車身", "series": "KS", "part_no": "99PVYPUFSKB120D", "raw_cars": "雙廂", "cars": ["雙廂"], "front_vlts": ["20", "40"], "rear_vlts": ["20", "40"]},
+  {"brand": "3M", "part_type": "前擋", "series": "8803 Plus", "part_no": "99PVY3M35C", "raw_cars": "全車型", "cars": ["單廂", "大單廂", "雙廂"], "vlt_display": "P 70"},
+  {"brand": "3M", "part_type": "車身", "series": "8803 Plus", "part_no": "99PVY3M20CS", "raw_cars": "單廂", "cars": ["單廂"], "front_vlts": ["18", "35", "40", "70"], "rear_vlts": ["18", "35", "40", "70"]},
+  {"brand": "3M", "part_type": "車身", "series": "8803 Plus", "part_no": "99PVY3M20CL", "raw_cars": "大單廂", "cars": ["大單廂"], "front_vlts": ["18", "35", "40", "70"], "rear_vlts": ["18", "35", "40", "70"]},
+  {"brand": "3M", "part_type": "車身", "series": "8803 Plus", "part_no": "99PVY3M20CD", "raw_cars": "雙廂", "cars": ["雙廂"], "front_vlts": ["18", "35", "40", "70"], "rear_vlts": ["18", "35", "40", "70"]}
+];
+
 window.addEventListener('DOMContentLoaded', () => {
     loadDatabaseExcel();
 });
@@ -352,57 +367,65 @@ async function loadDatabaseExcel() {
         const arrayBuffer = await response.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         
-        // 預設讀取第一個工作表
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
-        // 將 Excel 轉為 JSON 陣列
         const rawJson = XLSX.utils.sheet_to_json(worksheet);
 
-        // 解析資料並清理格式
+        // 正確解析以中文為標頭欄位的 Excel 內容
         DATABASE = rawJson.map(row => {
+            const brand = row['品牌'] ? String(row['品牌']).trim() : '';
+            const part_type = row['位置'] ? String(row['位置']).trim() : '';
+            const series = row['系列'] ? String(row['系列']).trim() : '';
+            const part_no = row['件號'] ? String(row['件號']).trim() : '';
+            const raw_cars = row['車型'] ? String(row['車型']).trim() : '';
+            const vlt_str = row['透光度'] !== undefined ? String(row['透光度']).trim() : '';
+
             let carsArr = [];
-            if (row.cars) {
-                carsArr = typeof row.cars === 'string' ? row.cars.split(',').map(s => s.trim()) : [String(row.cars)];
-            } else if (row.raw_cars) {
-                if (row.raw_cars === "全車型") carsArr = ["單廂", "大單廂", "雙廂"];
-                else carsArr = [row.raw_cars];
+            if (raw_cars === "全車型") {
+                carsArr = ["單廂", "大單廂", "雙廂"];
+            } else {
+                carsArr = [raw_cars];
             }
 
+            let vltList = vlt_str.split(',').map(s => s.trim()).filter(s => s);
+            let vlt_display = '';
             let frontVlts = [];
-            if (row.front_vlts) {
-                frontVlts = String(row.front_vlts).split(',').map(s => s.trim());
-            }
-
             let rearVlts = [];
-            if (row.rear_vlts) {
-                rearVlts = String(row.rear_vlts).split(',').map(s => s.trim());
+
+            if (part_type === '前擋') {
+                const seriesDisplay = row['系列顯示'] || series;
+                vlt_display = `${seriesDisplay} ${vlt_str}`.trim();
+            } else {
+                frontVlts = vltList;
+                rearVlts = vltList;
             }
 
             return {
-                brand: row.brand ? String(row.brand).trim() : '',
-                part_type: row.part_type ? String(row.part_type).trim() : '',
-                series: row.series ? String(row.series).trim() : '',
-                part_no: row.part_no ? String(row.part_no).trim() : '',
-                raw_cars: row.raw_cars ? String(row.raw_cars).trim() : '',
+                brand,
+                part_type,
+                series,
+                part_no,
+                raw_cars,
                 cars: carsArr,
-                vlt_display: row.vlt_display ? String(row.vlt_display).trim() : '',
+                vlt_display,
                 front_vlts: frontVlts,
                 rear_vlts: rearVlts
             };
         });
 
-        statusElem.textContent = '✅ 資料庫載入完成';
+        statusElem.textContent = '✅ 已動態讀取 database.xlsx 資料庫';
         statusElem.style.color = '#28a745';
 
-        // 載入品牌系列下拉選單
-        initBrandSeriesOptions();
-
     } catch (err) {
-        console.error(err);
-        statusElem.textContent = '❌ 資料庫載入失敗 (請確認 database.xlsx 是否位於同一目錄與 HTTP 伺服器環境下)';
-        statusElem.style.color = '#dc3545';
+        console.warn('無法從外部讀取 database.xlsx，切換至內建預設資料集:', err);
+        DATABASE = DEFAULT_FALLBACK_DATA;
+        statusElem.textContent = '⚡ 使用內建備份資料庫（無伺服器環境）';
+        statusElem.style.color = '#6c757d';
     }
+
+    // 初始化下拉選單
+    initBrandSeriesOptions();
 }
 
 function initBrandSeriesOptions() {
@@ -410,7 +433,6 @@ function initBrandSeriesOptions() {
         const partType = PART_TYPES_MAP[partKey];
         const selectElem = document.getElementById(`${partKey}-brand-series`);
         
-        // 過濾該部位的品牌與系列組合 (去重)
         const uniqueCombinations = [];
         const seen = new Set();
 
@@ -639,13 +661,11 @@ function updateNote() {
     const rawDeliveryDate = document.getElementById('deliveryDate').value;
     const otherInfo = document.getElementById('otherInfo').value.trim();
 
-    // 格式化交車日日期 (YYYY/MM/DD)
     let formattedDate = '';
     if (rawDeliveryDate) {
         formattedDate = rawDeliveryDate.replace(/-/g, '/');
     }
 
-    // 前擋文字
     const frontBs = document.getElementById('front-brand-series').value;
     let frontStr = '';
     if (frontBs) {
@@ -661,7 +681,6 @@ function updateNote() {
         }
     }
 
-    // 車身文字格式化
     const bodyBs = document.getElementById('body-brand-series').value;
     let bodyStr = '';
     if (bodyBs) {
@@ -681,7 +700,6 @@ function updateNote() {
                 bodyStr = parts.length > 0 ? `車身：${parts.join('、')}` : `車身：${bBrand}`;
             }
         } else {
-            // 單廂 / 大單廂
             const vltSingle = document.getElementById('body-vlt-single').value;
             bodyStr = `車身：${bBrand} ${seriesPrefix} ${vltSingle}`.trim();
         }
@@ -778,12 +796,3 @@ updateNote();
 
 </body>
 </html>
-
-```eof
-
-### 修改重點：
-1. **動態讀取 Excel**：引入了 SheetJS (`xlsx.full.min.js`) 函式庫，頁面載入時會自動透過 Fetch API 讀取同目錄下的 `database.xlsx`。
-2. **動態選單生成**：品牌與系列選單不再寫死，而是依據 `database.xlsx` 的內容自動去重並生成選單項目。未來新增品牌或系列時，只需更新 Excel 檔案即可。
-3. **擴充性動態拼接**：系統備註欄位的隔熱紙名稱改為動態根據品牌的品牌名稱與系列名稱自動格式化輸出。
-
-*注意：瀏覽器基於安全性限制 (CORS)，請確保網頁放置於 Web 伺服器 (如 Live Server, Nginx 或 Apache 等) 環境下運行以正常讀取同目錄的 `database.xlsx` 檔案。*
